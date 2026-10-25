@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>سيرفر تراخيص سنا — لوحة التحكم</title>
+<style>
+  :root { --teal: #0f766e; --ink: #1f2937; --ink-soft: #6b7280; --line: #e5e7eb; --bg: #f8f7f4; --rose: #e11d48; --amber: #b45309; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Tahoma, sans-serif; background: var(--bg); color: var(--ink); margin: 0; padding: 24px; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 20px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  label { display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 4px; }
+  input, select { width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid.narrow { max-width: 360px; margin: 0 auto; }
+  button { border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--teal); color: #fff; }
+  .btn-outline { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+  .btn-danger { background: var(--rose); color: #fff; }
+  .btn-small { padding: 5px 10px; font-size: 12px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--ink-soft); font-size: 11px; }
+  code { direction: ltr; display: inline-block; font-family: monospace; }
+  .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; }
+  .badge-active { background: #ccfbf1; color: var(--teal); }
+  .badge-revoked { background: #fecdd3; color: var(--rose); }
+  .badge-expired { background: #fef3c7; color: var(--amber); }
+  .badge-pending { background: #fef3c7; color: var(--amber); }
+  .badge-approved { background: #ccfbf1; color: var(--teal); }
+  .hint { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+  #login-screen { max-width: 340px; margin: 80px auto; }
+  #app-screen { display: none; }
+  .err { color: var(--rose); font-size: 12px; margin-top: 6px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .key-result { background: #f0fdfa; border: 1px solid var(--teal); border-radius: 10px; padding: 14px; margin-top: 14px; }
+  .devices-row td { background: #fafaf9; border-bottom: 2px solid var(--line); }
+  .device-line { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); gap: 8px; }
+  .device-line:last-child { border-bottom: none; }
+  .device-meta { font-size: 12px; color: var(--ink-soft); }
+  .toggle-devices { background: none; border: none; color: var(--teal); font-weight: 700; font-size: 12px; padding: 0; cursor: pointer; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+  .tab.active { background: var(--teal); color: #fff; border-color: var(--teal); }
+  .badge-live { background: #dbeafe; color: #1d4ed8; }
+  .notes-cell { max-width: 320px; white-space: pre-wrap; word-break: break-word; }
+
+  /* ===== عرض الموبايل ===== */
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .card { padding: 14px; border-radius: 12px; }
+    .grid { grid-template-columns: 1fr; }
+    .topbar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .topbar > div { display: flex; gap: 8px; }
+    .topbar button { flex: 1; }
+    h1 { font-size: 17px; }
+
+    /* الجدول بيتحول لكروت مكدّسة بدل صفوف أفقية ضيقة */
+    table, thead, tbody, th, td, tr { display: block; }
+    thead { display: none; }
+    tr {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      padding: 4px 0;
+      background: #fff;
+    }
+    tr.devices-row { border: none; margin-top: -8px; padding: 0; }
+    td {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px dashed var(--line);
+      text-align: right;
+    }
+    td:last-child { border-bottom: none; flex-wrap: wrap; }
+    td::before {
+      content: attr(data-label);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-soft);
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    code { word-break: break-all; text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div id="login-screen" class="card">
+    <h1>🔑 سيرفر تراخيص سنا</h1>
+    <label>اسم المستخدم</label>
+    <input id="login-username" autocomplete="username" />
+    <label style="margin-top:10px">كلمة المرور</label>
+    <input id="login-password" type="password" autocomplete="current-password" />
+    <button class="btn-primary" style="width:100%; margin-top:14px" onclick="doLogin()">تسجيل الدخول</button>
+    <p id="login-error" class="err"></p>
+  </div>
+
+  <div id="app-screen">
+    <div class="topbar">
+      <h1>🔑 لوحة إدارة التراخيص</h1>
+      <div>
+        <button class="btn-outline" onclick="promptApproveDevice()">موافقة على جهاز بكود</button>
+        <button class="btn-outline" onclick="logout()">تسجيل الخروج</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">إصدار ترخيص جديد</h3>
+      <div class="grid">
+        <div>
+          <label>معرّف العميل (فريد)</label>
+          <input id="f-clientId" placeholder="clinic-name-001" dir="ltr" />
+        </div>
+        <div>
+          <label>اسم العميل</label>
+          <input id="f-clientName" placeholder="اسم العيادة" />
+        </div>
+        <div>
+          <label>هاتف التواصل (اختياري)</label>
+          <input id="f-contactPhone" dir="ltr" />
+        </div>
+        <div>
+          <label>نوع الترخيص</label>
+          <select id="f-type">
+            <option value="trial">تجريبي (Trial) — موافقة تلقائية على أول جهاز</option>
+            <option value="premium">مدفوع (Premium) — يحتاج موافقتك على كل جهاز</option>
+            <option value="full" id="opt-full" hidden disabled>دائم (Full) — بدون انتهاء، يحتاج موافقتك، يقف بالإلغاء فقط</option>
+          </select>
+        </div>
+        <div>
+          <label>المدة (بالأيام)</label>
+          <input id="f-durationDays" type="number" value="30" />
+        </div>
+        <div>
+          <label>أقصى عدد أجهزة</label>
+          <input id="f-maxDevices" type="number" value="1" />
+        </div>
+      </div>
+      <button class="btn-primary" style="margin-top:14px" onclick="issueLicense()">إصدار الترخيص</button>
+      <div id="issue-error" class="err"></div>
+      <div id="issue-result" class="key-result" style="display:none">
+        <b>تم الإصدار بنجاح — مفتاح التفعيل:</b><br/>
+        <code id="issued-key" style="font-size:16px; margin-top:6px; display:inline-block"></code>
+        <button class="btn-outline" style="margin-right:10px" onclick="copyIssuedKey()">نسخ</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">كل التراخيص</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>العميل</th><th>المفتاح</th><th>النوع</th><th>الحالة</th><th>الأجهزة</th><th>الانتهاء</th><th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="licenses-body"></tbody>
+      </table>
+      <p id="licenses-empty" class="hint" style="display:none">لا توجد تراخيص بعد.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">إصدارات التحديثات</h3>
+      <div class="tabs">
+        <button id="tab-frontend" class="tab btn-small active" onclick="switchUpdatesTab('frontend')">التطبيق (Frontend)</button>
+        <button id="tab-backend" class="tab btn-small" onclick="switchUpdatesTab('backend')">السيرفر (Backend)</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>الإصدار</th><th>التاريخ</th><th>الوصف</th><th>الحالة</th><th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="updates-body"></tbody>
+      </table>
+      <p id="updates-empty" class="hint" style="display:none">لا توجد إصدارات منشورة بعد.</p>
+      <p id="updates-error" class="err"></p>
+      <p class="hint">الإصدار المعلّم "بيوصل للعملاء" هو أحدث إصدار مفعّل، وهو اللي هيتعرض للعملاء في الفحص الدوري.</p>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// نفس الصفحة بتخدم منتجين: / = العيادات، /pos/ = SanaSoftware POS (تراخيص وتحديثات منفصلة)
+const BASE = /\/pos\/?$/.test(location.pathname) ? '/pos' : '';
+const IS_POS = BASE === '/pos';
+let token = localStorage.getItem('licenseServerToken') || null;
+let lastIssuedKey = '';
+let currentLicenses = [];
+let expandedLicenseId = null;
+
+function api(path, opts = {}) {
+  return fetch(BASE + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      ...(opts.headers || {}),
+    },
+  }).then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.message || 'حدث خطأ');
+    return data;
+  });
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  loadLicenses();
+  loadUpdates();
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  document.getElementById('login-error').textContent = '';
+  try {
+    const data = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    token = data.accessToken;
+    localStorage.setItem('licenseServerToken', token);
+    showApp();
+  } catch (e) {
+    document.getElementById('login-error').textContent = e.message;
+  }
+}
+
+function logout() {
+  token = null;
+  if (idleTimer) clearTimeout(idleTimer);
+  localStorage.removeItem('licenseServerToken');
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'block';
+}
+
+async function issueLicense() {
+  document.getElementById('issue-error').textContent = '';
+  const payload = {
+    clientId: document.getElementById('f-clientId').value.trim(),
+    clientName: document.getElementById('f-clientName').value.trim() || undefined,
+    contactPhone: document.getElementById('f-contactPhone').value.trim() || undefined,
+    type: document.getElementById('f-type').value,
+    durationDays: Number(document.getElementById('f-durationDays').value) || undefined,
+    maxDevices: Number(document.getElementById('f-maxDevices').value),
+  };
+  if (!payload.clientId) {
+    document.getElementById('issue-error').textContent = 'معرّف العميل مطلوب';
+    return;
+  }
+  try {
+    const license = await api('/api/licenses', { method: 'POST', body: JSON.stringify(payload) });
+    lastIssuedKey = license.activationKey;
+    document.getElementById('issued-key').textContent = license.activationKey;
+    document.getElementById('issue-result').style.display = 'block';
+    document.getElementById('f-clientId').value = '';
+    document.getElementById('f-clientName').value = '';
+    document.getElementById('f-contactPhone').value = '';
+    loadLicenses();
+  } catch (e) {
+    document.getElementById('issue-error').textContent = e.message;
+  }
+}
+
+function copyIssuedKey() {
+  navigator.clipboard.writeText(lastIssuedKey);
+}
+
+function statusBadge(license) {
+  const expired = license.status === 'active' && new Date(license.expiresAt) < new Date();
+  const key = expired ? 'expired' : license.status;
+  const labels = { active: 'ساري', revoked: 'ملغي', expired: 'منتهي' };
+  return '<span class="badge badge-' + key + '">' + labels[key] + '</span>';
+}
+
+function deviceBadge(a) {
+  if (a.revokedAt) return '<span class="badge badge-revoked">ملغي</span>';
+  if (a.status === 'pending') return '<span class="badge badge-pending">بانتظار الموافقة</span>';
+  return '<span class="badge badge-approved">موافَق عليه</span>';
+}
+
+function pendingCountFor(license) {
+  return (license.activations || []).filter((a) => !a.revokedAt && a.status === 'pending').length;
+}
+
+async function loadLicenses() {
+  currentLicenses = await api('/api/licenses');
+  renderLicenses();
+}
+
+function renderLicenses() {
+  const body = document.getElementById('licenses-body');
+  const empty = document.getElementById('licenses-empty');
+  body.innerHTML = '';
+  empty.style.display = currentLicenses.length === 0 ? 'block' : 'none';
+
+  for (const l of currentLicenses) {
+    const activations = l.activations || [];
+    const activeDevices = activations.filter((a) => !a.revokedAt).length;
+    const pendingCount = pendingCountFor(l);
+    const expired = l.status === 'active' && new Date(l.expiresAt) < new Date();
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="العميل"><b>${l.clientName || l.clientId}</b><br/><span class="hint">${l.clientId}</span></td>
+      <td data-label="المفتاح"><code>${l.activationKey}</code></td>
+      <td data-label="النوع">${l.type === 'trial' ? 'تجريبي' : l.type === 'full' ? 'دائم' : 'مدفوع'}</td>
+      <td data-label="الحالة">${statusBadge(l)}</td>
+      <td data-label="الأجهزة">
+        <button class="toggle-devices" onclick="toggleDevices('${l.id}')">
+          ${activeDevices} / ${l.maxDevices} ${pendingCount > 0 ? '⚠️ ' + pendingCount + ' بانتظار الموافقة' : ''}
+        </button>
+      </td>
+      <td data-label="الانتهاء">${l.type === 'full' ? 'دائم' : new Date(l.expiresAt).toLocaleDateString('ar-EG')}</td>
+      <td data-label="إجراءات">
+        ${l.type === 'full' ? '' : `<button class="btn-outline btn-small" onclick="renewLicense('${l.id}')">تجديد</button>`}
+        <button class="btn-outline btn-small" onclick="editMaxDevices('${l.id}', ${l.maxDevices})">عدد الأجهزة</button>
+        ${l.status === 'active' ? `<button class="btn-danger btn-small" onclick="revokeLicense('${l.id}', '${(l.clientName || l.clientId).replace(/'/g, "")}')">إلغاء</button>` : ''}
+        ${l.status === 'revoked' || expired ? `<button class="btn-danger btn-small" onclick="deleteLicense('${l.id}', '${(l.clientName || l.clientId).replace(/'/g, "")}')">حذف نهائي</button>` : ''}
+      </td>
+    `;
+    body.appendChild(tr);
+
+    if (expandedLicenseId === l.id) {
+      const devicesTr = document.createElement('tr');
+      devicesTr.className = 'devices-row';
+      const devicesHtml = activations.length
+        ? activations.map((a) => `
+            <div class="device-line">
+              <div>
+                <b>${a.deviceName || 'جهاز بدون اسم'}</b> ${deviceBadge(a)}
+                <div class="device-meta">كود: <code>${a.deviceCode || '—'}</code> · آخر تحقق: ${new Date(a.lastVerifiedAt).toLocaleString('ar-EG')}</div>
+              </div>
+              <div>
+                ${!a.revokedAt && a.status === 'pending' ? `<button class="btn-primary btn-small" onclick="approveDevice('${a.deviceCode}')">موافقة</button>` : ''}
+                ${!a.revokedAt && !IS_POS ? `<button class="btn-danger btn-small" onclick="revokeDevice('${l.id}', '${a.id}')">إلغاء الجهاز</button>` : ''}
+              </div>
+            </div>
+          `).join('')
+        : '<p class="hint">مفيش أجهزة اتفعّلت على الترخيص ده لسه.</p>';
+      devicesTr.innerHTML = `<td colspan="7">${devicesHtml}</td>`;
+      body.appendChild(devicesTr);
+    }
+  }
+}
+
+function toggleDevices(id) {
+  expandedLicenseId = expandedLicenseId === id ? null : id;
+  renderLicenses();
+}
+
+async function revokeLicense(id, name) {
+  if (!confirm('تأكيد إلغاء ترخيص "' + name + '"؟')) return;
+  await api('/api/licenses/' + id + '/revoke', { method: 'PATCH' });
+  loadLicenses();
+}
+
+async function deleteLicense(id, name) {
+  if (!confirm('تأكيد الحذف النهائي لترخيص "' + name + '"؟ الإجراء ده مينفعش يترجع فيه — هيتمسح السجل وكل أجهزته نهائيًا.')) return;
+  try {
+    await api('/api/licenses/' + id, { method: 'DELETE' });
+    loadLicenses();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function renewLicense(id) {
+  const days = Number(prompt('كم يوم تريد إضافتها؟', '30'));
+  if (!days || days <= 0) return;
+  await api('/api/licenses/' + id + '/renew', { method: 'PATCH', body: JSON.stringify({ durationDays: days }) });
+  loadLicenses();
+}
+
+async function editMaxDevices(id, current) {
+  const val = Number(prompt('أقصى عدد أجهزة جديد؟', String(current)));
+  if (!val || val < 1) return;
+  await api('/api/licenses/' + id + '/max-devices', { method: 'PATCH', body: JSON.stringify({ maxDevices: val }) });
+  loadLicenses();
+}
+
+async function revokeDevice(licenseId, activationId) {
+  if (!confirm('تأكيد إلغاء تفعيل هذا الجهاز؟')) return;
+  try {
+    await api('/api/licenses/' + licenseId + '/devices/' + activationId + '/revoke', { method: 'PATCH' });
+    loadLicenses();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function approveDevice(deviceCode) {
+  try {
+    await api('/api/licenses/devices/approve', { method: 'POST', body: JSON.stringify({ deviceCode }) });
+    loadLicenses();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function promptApproveDevice() {
+  const code = prompt('كود الجهاز اللي العميل قاله لك تليفونيًا (مثال: 7K4P-QW2X)؟');
+  if (!code) return;
+  await approveDevice(code.trim().toUpperCase());
+}
+
+
+// ---------------- إصدارات التحديثات ----------------
+let updatesTab = IS_POS ? 'POS' : 'frontend';
+let currentUpdates = [];
+
+function esc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function switchUpdatesTab(tab) {
+  updatesTab = tab;
+  document.getElementById('tab-frontend').classList.toggle('active', tab === 'frontend');
+  document.getElementById('tab-backend').classList.toggle('active', tab === 'backend');
+  loadUpdates();
+}
+
+async function loadUpdates() {
+  document.getElementById('updates-error').textContent = '';
+  try {
+    currentUpdates = await api('/api/updates/' + updatesTab);
+    renderUpdates();
+  } catch (e) {
+    document.getElementById('updates-error').textContent = e.message;
+  }
+}
+
+function renderUpdates() {
+  const body = document.getElementById('updates-body');
+  const empty = document.getElementById('updates-empty');
+  body.innerHTML = '';
+  empty.style.display = currentUpdates.length === 0 ? 'block' : 'none';
+
+  // أحدث إصدار مفعّل = اللي العملاء بياخدوه (القائمة جاية مرتبة من الأحدث)
+  const liveId = (currentUpdates.find((r) => r.enabled) || {}).id;
+
+  for (const r of currentUpdates) {
+    const isLive = r.id === liveId;
+    const badge = r.enabled
+      ? '<span class="badge badge-active">مفعّل</span>' + (isLive ? ' <span class="badge badge-live">بيوصل للعملاء</span>' : '')
+      : '<span class="badge badge-revoked">متوقف</span>';
+    let link = '';
+    if (updatesTab === 'frontend') {
+      const p = (r.platforms && r.platforms['windows-x86_64']) || null;
+      if (p && p.url) link = ' <a href="' + esc(p.url) + '" target="_blank" rel="noopener" class="hint">ملف التثبيت</a>';
+    } else if (r.platforms && r.platforms.downloadUrl) {
+      link = ' <a href="' + esc(r.platforms.downloadUrl) + '" target="_blank" rel="noopener" class="hint">الملف</a>';
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="الإصدار"><b><code>${esc(r.version)}</code></b>${link}</td>
+      <td data-label="التاريخ">${new Date(r.pubDate).toLocaleString('ar-EG')}</td>
+      <td data-label="الوصف" class="notes-cell">${esc(r.notes) || '<span class="hint">—</span>'}</td>
+      <td data-label="الحالة">${badge}</td>
+      <td data-label="إجراءات">
+        <button class="btn-outline btn-small" onclick="toggleUpdate('${r.id}', ${!r.enabled})">${r.enabled ? 'إيقاف' : 'تفعيل'}</button>
+        ${updatesTab === 'frontend' ? `<button class="btn-outline btn-small" onclick="editUpdateNotes('${r.id}')">تعديل الوصف</button>` : ''}
+        <button class="btn-danger btn-small" onclick="deleteUpdate('${r.id}', '${esc(r.version)}')">حذف</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+async function toggleUpdate(id, enabled) {
+  const msg = enabled ? 'تأكيد تفعيل الإصدار ده؟' : 'تأكيد إيقاف الإصدار ده؟ العملاء مش هيشوفوه في التحديثات.';
+  if (!confirm(msg)) return;
+  try {
+    await api('/api/updates/' + updatesTab + '/' + id + '/toggle', { method: 'PATCH', body: JSON.stringify({ enabled }) });
+    loadUpdates();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function editUpdateNotes(id) {
+  const r = currentUpdates.find((x) => x.id === id);
+  if (!r) return;
+  const val = prompt('وصف الإصدار ' + r.version + ' (اللي هيظهر للعميل):', r.notes || '');
+  if (val === null) return;
+  try {
+    await api('/api/updates/frontend/' + id + '/notes', { method: 'PATCH', body: JSON.stringify({ notes: val }) });
+    loadUpdates();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+async function deleteUpdate(id, version) {
+  if (!confirm('تأكيد الحذف النهائي للإصدار ' + version + '؟ الإجراء ده مينفعش يترجع فيه. لو عايز تخفيه بس استخدم "إيقاف".')) return;
+  try {
+    await api('/api/updates/' + updatesTab + '/' + id, { method: 'DELETE' });
+    loadUpdates();
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// تعديلات الشكل لنسخة الـ POS (نفس الصفحة، منتج مختلف)
+if (IS_POS) {
+  document.title = 'تراخيص SanaSoftware POS — لوحة التحكم';
+  document.querySelectorAll('h1').forEach((h) => {
+    h.textContent = h.textContent.replace('سيرفر تراخيص سنا', 'تراخيص SanaSoftware POS').replace('لوحة إدارة التراخيص', 'لوحة تراخيص POS');
+  });
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.style.display = 'none';
+  const optFull = document.getElementById('opt-full');
+  if (optFull) { optFull.hidden = false; optFull.disabled = false; }
+  const cid = document.getElementById('f-clientId');
+  if (cid) cid.placeholder = 'pos-store-001';
+  const cname = document.getElementById('f-clientName');
+  if (cname) cname.placeholder = 'اسم المطعم / الكافيه';
+}
+
+// تسجيل الدخول بزرار Enter
+['login-username', 'login-password'].forEach((id) =>
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doLogin();
+  }),
+);
+
+if (token) showApp();
+
+// ---- تسجيل خروج تلقائي بعد 5 دقايق من عدم النشاط ----
+// شغّال بس والداشبورد ظاهر (مش شاشة تسجيل الدخول نفسها، مفيش داعي هناك).
+// أي حركة ماوس/كيبورد/سكرول بترجّع العداد لأول من جديد.
+const IDLE_LOGOUT_MS = 5 * 60 * 1000;
+let idleTimer = null;
+
+function resetIdleTimer() {
+  if (!token) return; // مسجل خروج بالفعل، مفيش داعي نشغّل تايمر
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    logout();
+    alert('تم تسجيل الخروج تلقائيًا بعد 5 دقايق من عدم النشاط.');
+  }, IDLE_LOGOUT_MS);
+}
+
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach((evt) =>
+  window.addEventListener(evt, resetIdleTimer, { passive: true }),
+);
+
+resetIdleTimer();
+</script>
+</body>
+</html>
